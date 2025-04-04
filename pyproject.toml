@@ -1,0 +1,100 @@
+[tool.poetry]
+name = "dptb"
+version = "2.0.1"
+license = "LGPL-3.0"
+description = "A deep learning package for emperical tight-binding approach with first-principle accuracy."
+authors = ["Q. Gu <guqq@pku.edu.cn>", "Z. Zhanghao <zhouyinzhanghao@gmail.com>"]
+readme = "README.md"
+repository = "https://github.com/deepmodeling/DeePTB"
+
+[tool.poetry.dependencies]
+python = ">=3.9"
+pytest = ">=7.2.0"
+pytest-order = "1.2.0"
+numpy = "*"
+scipy = "1.9.1"
+spglib = "*"
+matplotlib = "*"
+torch = ">=1.13.0"
+ase = "*"
+pyyaml = "*"
+future = "*"
+dargs = "0.4.4"
+xitorch = "0.3.0"
+fmm3dpy = "1.0.0"
+e3nn = ">=0.5.1"
+torch-runstats = "0.2.0"
+torch_scatter = "2.1.2"
+torch_geometric = ">=2.4.0"
+opt-einsum = "3.3.0"
+h5py = "3.7.0"
+lmdb = "1.4.1"
+pyfiglet = "1.0.2"
+tensorboard = "*"
+
+[tool.poetry.group.dev.dependencies]
+pytest = ">=7.2.0"
+pytest-order = "1.2.0"
+numpy = "*"
+scipy = "1.9.1"
+spglib = "*"
+matplotlib = "*"
+torch = ">=1.13.0"
+ase = "*"
+pyyaml = "*"
+future = "*"
+dargs = "0.4.4"
+xitorch = "0.3.0"
+fmm3dpy = "1.0.0"
+e3nn = ">=0.5.1"
+torch-runstats = "0.2.0"
+torch_scatter = "2.1.2"
+torch_geometric = ">=2.4.0"
+opt-einsum = "3.3.0"
+h5py = "3.7.0"
+lmdb = "1.4.1"
+pyfiglet = "1.0.2"
+tensorboard = "*"
+
+[tool.poetry.group.3Dfermi]
+optional = true
+
+[tool.poetry.group.3Dfermi.dependencies]
+ifermi = "*"
+pymatgen = "*"
+
+[tool.poetry.group.tbtrans_init]
+optional = true
+
+[tool.poetry.group.tbtrans_init.dependencies]
+sisl = "*"
+
+[tool.poetry.group.pybinding]
+optional = true
+
+[tool.poetry.group.pybinding.dependencies]
+pybinding = "*"
+
+
+[tool.poetry.scripts]
+dptb = 'dptb.__main__:main'
+dptb-qm9 = 'dptb.data.interfaces.pyscf:main'
+
+[build-system]
+requires = ["poetry-core", "poetry-dynamic-versioning"]
+build-backend = "poetry_dynamic_versioning.backend"
+
+
+[tool.poetry-dynamic-versioning]
+enable = true
+vcs = "git"
+strict = true
+format-jinja = """
+    {%- if distance == 0 -%}
+        {{ serialize_pep440(base, stage, revision) }}
+    {%- elif revision is not none -%}
+        {{ serialize_pep440(base, stage, revision + 1, dev=distance, metadata=[commit]) }}
+    {%- else -%}
+        {{ serialize_pep440(bump_version(base), stage, revision, dev=distance, metadata=[commit]) }}
+    {%- endif -%}
+"""
