@@ -1,20 +1,19 @@
 from typing import List
 import torch
-from dptb.negf.areshkin_pole_sum import pole_maker
-from dptb.negf.recursive_green_cal import recursive_gf
-from dptb.negf.surface_green import selfEnergy
-from dptb.negf.negf_utils import quad, gauss_xw,update_kmap,leggauss
-from dptb.negf.ozaki_res_cal import ozaki_residues
-from dptb.negf.areshkin_pole_sum import pole_maker
+from dptb_negf.negf.areshkin_pole_sum import pole_maker
+from dptb_negf.negf.recursive_green_cal import recursive_gf
+from dptb_negf.negf.surface_green import selfEnergy
+from dptb_negf.negf.negf_utils import quad, gauss_xw,update_kmap,leggauss
+from dptb_negf.negf.ozaki_res_cal import ozaki_residues
+from dptb_negf.negf.areshkin_pole_sum import pole_maker
 from ase.io import read,write
-from dptb.negf.poisson import Density2Potential, getImg
-from dptb.negf.scf_method import SCFMethod
+from dptb_negf.negf.poisson import Density2Potential, getImg
+from dptb_negf.negf.scf_method import SCFMethod
 import logging
 import os
 import torch.optim as optim
-from dptb.utils.tools import j_must_have
+from dptb_negf.utils.tools import j_must_have
 import numpy as np
-from dptb.utils.make_kpoints import kmesh_sampling
 
 import ase
 from dptb.data import AtomicData, AtomicDataDict
@@ -24,10 +23,10 @@ from dptb.nn.hamiltonian import E3Hamiltonian
 from dptb.nn.hr2hk import HR2HK
 from ase import Atoms
 from ase.build import sort
-from dptb.negf.bloch import Bloch
-from dptb.negf.sort_btd import sort_lexico, sort_projection, sort_capacitance
-from dptb.negf.split_btd import show_blocks,split_into_subblocks,split_into_subblocks_optimized
-from dptb.negf.negf_utils import natsorted
+from dptb_negf.negf.bloch import Bloch
+from dptb_negf.negf.sort_btd import sort_lexico, sort_projection, sort_capacitance
+from dptb_negf.negf.split_btd import show_blocks,split_into_subblocks,split_into_subblocks_optimized
+from dptb_negf.negf.negf_utils import natsorted
 from scipy.spatial import KDTree
 import h5py
 import re

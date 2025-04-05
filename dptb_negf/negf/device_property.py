@@ -2,9 +2,9 @@ from dptb_negf.negf.recursive_green_cal import recursive_gf
 import logging
 import torch
 import os
-from dptb.negf.negf_utils import update_kmap, update_temp_file,gauss_xw, leggauss
-from dptb.negf.density import Ozaki
-from dptb.utils.constants import Boltzmann, eV2J,pi
+from dptb_negf.negf.negf_utils import update_kmap, update_temp_file,gauss_xw, leggauss
+from dptb_negf.negf.density import Ozaki
+from dptb_negf.utils.constants import Boltzmann, eV2J,pi
 import numpy  as np
 from scipy.integrate import simpson
 import matplotlib.pyplot as plt
