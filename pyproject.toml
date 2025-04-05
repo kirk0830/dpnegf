@@ -1,11 +1,11 @@
 [tool.poetry]
-name = "dptb"
-version = "2.0.1"
+name = "dptb-negf"
+version = "0.1.0"
 license = "LGPL-3.0"
-description = "A deep learning package for emperical tight-binding approach with first-principle accuracy."
-authors = ["Q. Gu <guqq@pku.edu.cn>", "Z. Zhanghao <zhouyinzhanghao@gmail.com>"]
+description = "A nonequilibrium Green’s function (NEGF) module based on dptb."
+authors = ["J. Zou <jijiezou@stu.pku.edu.cn>","Q. Gu <guqq@pku.edu.cn>", "Z. Zhanghao <zhouyinzhanghao@gmail.com>"]
 readme = "README.md"
-repository = "https://github.com/deepmodeling/DeePTB"
+repository = "https://github.com/DeePTB-Lab/DeePTB-negf"
 
 [tool.poetry.dependencies]
 python = ">=3.9"
@@ -56,18 +56,6 @@ lmdb = "1.4.1"
 pyfiglet = "1.0.2"
 tensorboard = "*"
 
-[tool.poetry.group.3Dfermi]
-optional = true
-
-[tool.poetry.group.3Dfermi.dependencies]
-ifermi = "*"
-pymatgen = "*"
-
-[tool.poetry.group.tbtrans_init]
-optional = true
-
-[tool.poetry.group.tbtrans_init.dependencies]
-sisl = "*"
 
 [tool.poetry.group.pybinding]
 optional = true
@@ -75,10 +63,6 @@ optional = true
 [tool.poetry.group.pybinding.dependencies]
 pybinding = "*"
 
-
-[tool.poetry.scripts]
-dptb = 'dptb.__main__:main'
-dptb-qm9 = 'dptb.data.interfaces.pyscf:main'
 
 [build-system]
 requires = ["poetry-core", "poetry-dynamic-versioning"]
