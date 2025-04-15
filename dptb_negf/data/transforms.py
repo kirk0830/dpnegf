@@ -1,6 +1,6 @@
 from typing import Dict, Optional, Union, List
 from .AtomicDataDict import Type
-from ..constants import anglrMId, norb_dict, norb_dict_r
+from ..utils.constants import anglrMId, norb_dict, norb_dict_r
 import re
 import warnings
 import ase.data

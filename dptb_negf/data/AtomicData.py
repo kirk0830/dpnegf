@@ -19,7 +19,7 @@ from ase.stress import voigt_6_to_full_3x3_stress, full_3x3_to_voigt_6_stress
 
 from . import AtomicDataDict
 from .data_np import Data
-from ..constants import atomic_num_dict
+from ..utils.constants import atomic_num_dict
 
 # A type representing ASE-style periodic boundary condtions, which can be partial (the tuple case)
 PBC = Union[bool, Tuple[bool, bool, bool]]
