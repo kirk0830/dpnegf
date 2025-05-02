@@ -148,8 +148,7 @@ class NEGFHamiltonianInit(object):
         # obtain atom_norbs
         atom_norbs = []
         for atom in self.structase:
-            atom_symbol = atom.symbol
-            atom_norbs.append(int(self.model.idp.atom_norb[model.idp.chemical_symbol_to_type[atom_symbol]]))
+            atom_norbs.append(int(self.model.idp.atom_norb[model.idp.chemical_symbol_to_type[atom.symbol]]))
         self.atom_norbs = atom_norbs
 
     def initialize(self, kpoints, block_tridiagnal=False,useBloch=False,bloch_factor=None,\
