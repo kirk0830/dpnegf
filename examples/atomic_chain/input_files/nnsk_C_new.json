@@ -31,7 +31,7 @@
             "2s"
         ]
     },
-    "dtype": "float64",
+    "dtype": "float32",
     "device": "cpu",
     "overlap": false
 }
