@@ -76,7 +76,7 @@ class NEGFHamiltonianInit(object):
                  ) -> None:
         
         # TODO: add dtype and device setting to the model
-        torch.set_default_dtype(torch.float64)
+        # torch.set_default_dtype(torch.float64)
 
         if isinstance(torch_device, str):
             torch_device = torch.device(torch_device)
@@ -123,17 +123,6 @@ class NEGFHamiltonianInit(object):
             device=self.torch_device,
             )
 
-        # if overlap:
-        #     self.s2k = HR2HK(
-        #         idp=model.idp, 
-        #         overlap=True, 
-        #         edge_field=AtomicDataDict.EDGE_OVERLAP_KEY, 
-        #         node_field=AtomicDataDict.NODE_OVERLAP_KEY, 
-        #         out_field=AtomicDataDict.OVERLAP_KEY, 
-        #         dtype=model.dtype, 
-        #         device=self.torch_device,
-        #         )   
-        
         self.device_id = [int(x) for x in self.stru_options['device']["id"].split("-")]
         self.lead_ids = {}
         for kk in self.stru_options:
@@ -155,6 +144,13 @@ class NEGFHamiltonianInit(object):
         else:
             log.error("The unit name is not correct !")
             raise ValueError
+
+        # obtain atom_norbs
+        atom_norbs = []
+        for atom in self.structase:
+            atom_symbol = atom.symbol
+            atom_norbs.append(int(self.model.idp.atom_norb[model.idp.chemical_symbol_to_type[atom_symbol]]))
+        self.atom_norbs = atom_norbs
 
     def initialize(self, kpoints, block_tridiagnal=False,useBloch=False,bloch_factor=None,\
                    use_saved_HS=False, saved_HS_path=None):
@@ -220,7 +216,7 @@ class NEGFHamiltonianInit(object):
             log.info(msg=f"The Hamiltonian has been initialized by model.")
             log.info(msg="=="*40)
 
-        torch.set_default_dtype(torch.float32)
+        # torch.set_default_dtype(torch.float32)
         return  structure_device, structure_leads, structure_leads_fold, \
                 bloch_sorted_indices, bloch_R_lists
 
@@ -303,9 +299,8 @@ class NEGFHamiltonianInit(object):
         else:
             SK = torch.eye(HK.shape[1], dtype=self.model.dtype, device=self.torch_device).unsqueeze(0).repeat(HK.shape[0], 1, 1)          
       
-        # H, S = self.apiH.get_HK(kpoints=kpoints)
-        d_start = int(np.sum(self.h2k.atom_norbs[:self.device_id[0]]))
-        d_end = int(np.sum(self.h2k.atom_norbs)-np.sum(self.h2k.atom_norbs[self.device_id[1]:]))
+        d_start = int(np.sum(self.atom_norbs[:self.device_id[0]]))
+        d_end = int(np.sum(self.atom_norbs)-np.sum(self.atom_norbs[self.device_id[1]:]))
         HD, SD = HK[:,d_start:d_end, d_start:d_end], SK[:, d_start:d_end, d_start:d_end]
         Hall, Sall = HK, SK
 
@@ -327,8 +322,8 @@ class NEGFHamiltonianInit(object):
                     HS_leads["kpoints_bloch"] = None
                     HS_leads["bloch_factor"] = None
                         
-                l_start = int(np.sum(self.h2k.atom_norbs[:lead_atom_range[kk][0]]))
-                l_end = int(l_start + np.sum(self.h2k.atom_norbs[lead_atom_range[kk][0]:lead_atom_range[kk][1]]) / 2)
+                l_start = int(np.sum(self.atom_norbs[:lead_atom_range[kk][0]]))
+                l_end = int(l_start + np.sum(self.atom_norbs[lead_atom_range[kk][0]:lead_atom_range[kk][1]]) / 2)
                 # lead hamiltonian in the first principal layer(the layer close to the device)
                 HL, SL = HK[:,l_start:l_end, l_start:l_end], SK[:, l_start:l_end, l_start:l_end]
                 # device and lead's hopping
@@ -593,10 +588,10 @@ class NEGFHamiltonianInit(object):
 
         if leftmost_size is None:
             leftmost_atoms_index = np.where(structase.positions[:,2]==min(structase.positions[:,2]))[0]
-            leftmost_size = sum([self.h2k.atom_norbs[leftmost_atoms_index[i]] for i in range(len(leftmost_atoms_index))])
+            leftmost_size = sum([self.atom_norbs[leftmost_atoms_index[i]] for i in range(len(leftmost_atoms_index))])
         if rightmost_size is None:   
             rightmost_atoms_index = np.where(structase.positions[:,2]==max(structase.positions[:,2]))[0]
-            rightmost_size = sum([self.h2k.atom_norbs[rightmost_atoms_index[i]] for i in range(len(rightmost_atoms_index))])
+            rightmost_size = sum([self.atom_norbs[rightmost_atoms_index[i]] for i in range(len(rightmost_atoms_index))])
         
         subblocks = split_into_subblocks_optimized(HK[0],leftmost_size,rightmost_size)
         if subblocks[0] < leftmost_size or subblocks[-1] < rightmost_size:
@@ -867,7 +862,7 @@ class NEGFHamiltonianInit(object):
         """ 
         return the number of atoms in the device Hamiltonian
         """
-        return self.h2k.atom_norbs[self.device_id[0]:self.device_id[1]]
+        return self.atom_norbs[self.device_id[0]:self.device_id[1]]
 
     # def get_hs_block_tridiagonal(self, HD, SD):
 

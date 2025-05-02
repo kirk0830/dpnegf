@@ -182,7 +182,7 @@ class NEGF(object):
             raise ValueError
 
         # number of orbitals on atoms in device region
-        self.device_atom_norbs = self.negf_hamiltonian.h2k.atom_norbs[self.negf_hamiltonian.device_id[0]:self.negf_hamiltonian.device_id[1]]
+        self.device_atom_norbs = self.negf_hamiltonian.atom_norbs[self.negf_hamiltonian.device_id[0]:self.negf_hamiltonian.device_id[1]]
         left_connected_atom_mask = abs(struct_device.positions[:,2]-min(struct_device.positions[:,2]))<1e-6
         right_connected_atom_mask = abs(struct_device.positions[:,2]-max(struct_device.positions[:,2]))<1e-6
 
