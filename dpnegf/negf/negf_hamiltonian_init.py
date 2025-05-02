@@ -77,6 +77,8 @@ class NEGFHamiltonianInit(object):
         
         # TODO: add dtype and device setting to the model
         # torch.set_default_dtype(torch.float64)
+        
+        torch.set_default_dtype(model.dtype)
 
         if isinstance(torch_device, str):
             torch_device = torch.device(torch_device)
