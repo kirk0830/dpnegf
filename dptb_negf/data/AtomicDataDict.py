@@ -187,7 +187,7 @@ def with_onsitenv_vectors(data: Type, with_lengths: bool = True) -> Type:
                 )
         data[_keys.ONSITENV_VECTORS_KEY] = env_vec
         if with_lengths:
-            data[_keys.ONSITENV_LENGTH_KEY] = np.linalg.norm(env_vec, dim=-1)
+            data[_keys.ONSITENV_LENGTH_KEY] = np.linalg.norm(env_vec, axis=-1)
         return data
 
 

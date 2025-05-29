@@ -20,7 +20,6 @@ __all__ = [
     block_to_feature,
     feature_to_block,
     _register_field_prefix,
-    feature_to_block,
     OrbitalMapper,
     _NODE_FIELDS,
     _EDGE_FIELDS,

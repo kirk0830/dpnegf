@@ -59,13 +59,13 @@ def block_to_feature(data, idp, blocks=False, overlap_blocks=False, orthogonal=F
             if blocks:
                 try:
                     block = blocks[block_index][:]
-                except:
+                except KeyError:
                     raise IndexError("Hamiltonian block for onsite not found, check Hamiltonian file.")
             
             if overlap_blocks and not orthogonal:
                 try:
                     overlap_block = overlap_blocks[block_index][:]
-                except:
+                except KeyError:
                     raise IndexError("Overlap block for onsite not found, check Overlap file.")
                 
                 onsite_ovp_out = meta_dtype.zeros(idp.reduced_matrix_element)
