@@ -64,9 +64,9 @@ class Grid(object):
         self.Na = len(xa) # number of atoms
         uxa = np.unique(xa).round(decimals=6);uya = np.unique(ya).round(decimals=6);uza = np.unique(za).round(decimals=6)
         # x,y,z are the coordinates of the grid points
-        self.xall = np.unique(np.concatenate((uxa,self.xg),0).round(decimals=3)) # unique results are sorted
-        self.yall = np.unique(np.concatenate((uya,self.yg),0).round(decimals=3))
-        self.zall = np.unique(np.concatenate((uza,self.zg),0).round(decimals=3))
+        self.xall = np.unique(np.concatenate((uxa, self.xg),0).round(decimals=3)) # unique results are sorted
+        self.yall = np.unique(np.concatenate((uya, self.yg),0).round(decimals=3))
+        self.zall = np.unique(np.concatenate((uza, self.zg),0).round(decimals=3))
         self.shape = (len(self.xall),len(self.yall),len(self.zall))
 
         
@@ -93,10 +93,10 @@ class Grid(object):
 
         # create surface area for each grid point along x,y,z axis
         # each grid point corresponds to a Voronoi cell(box)
-        surface_grid = np.zeros((self.Np,3))
-        x_vorlen = self.cal_vorlen(self.xall);y_vorlen = self.cal_vorlen(self.yall);z_vorlen = self.cal_vorlen(self.zall)
+        surface_grid = np.zeros((self.Np, 3))
+        x_vorlen, y_vorlen, z_vorlen = map(self.cal_vorlen, (self.xall, self.yall, self.zall))
         
-        XD,YD = np.meshgrid(x_vorlen,y_vorlen)
+        XD, YD = np.meshgrid(x_vorlen, y_vorlen)
         ## surface along x-axis (yz-plane)
         ax,bx = np.meshgrid(YD.flatten(),z_vorlen)
         surface_grid[:,0] = abs((ax*bx).flatten())
@@ -133,7 +133,7 @@ class Grid(object):
                     swap.update({atom_index:gp_index})
         return swap
     
-    def cal_vorlen(self,x):
+    def cal_vorlen(self, x):
         """
         Compute the length of the Voronoi segment for each point in a one-dimensional array.
 
@@ -153,13 +153,12 @@ class Grid(object):
             corresponding to each point in `x`.
         """
         # compute the length of the Voronoi segment of a one-dimensional array x
-        xd = np.zeros(len(x))
-        xd[0] = abs(x[0]-x[1])/2
-        xd[-1] = abs(x[-1]-x[-2])/2
-        for i in range(1,len(x)-1):
-            xd[i] = (abs(x[i]-x[i-1])+abs(x[i]-x[i+1]))/2
+        # speed-up for one times after using np.roll() by kirk0830
+        x = np.array(x) 
+        xd = (np.abs(x - np.roll(x, -1)) + np.abs(x - np.roll(x, 1))) / 2
+        xd[0] = np.abs(x[0] - x[1]) / 2
+        xd[-1] = np.abs(x[-1] - x[-2]) / 2
         return xd
-
 
 class region(object):
     """
@@ -639,8 +638,9 @@ class Interface3D(object):
         - The method modifies J and B in place.
         """
         # construct the Jacobian and B for the Poisson equation
-               
-        Nx = self.grid.shape[0];Ny = self.grid.shape[1];Nz = self.grid.shape[2]
+        
+        # number of grid points in x,y,z direction
+        Nx, Ny, Nz = map(int, self.grid.shape[:3])
         for gp_index in range(self.grid.Np):
             if self.boudnary_points[gp_index] == "in":
                 flux_xm_J = self.grid.surface_grid[gp_index,0]*eps0*(self.eps[gp_index-1]+self.eps[gp_index])*0.5\
