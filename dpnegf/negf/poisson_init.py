@@ -741,7 +741,7 @@ class Interface3D(object):
         jac[igsurf, igsurf] = 1.0
 
     
-    def NR_construct_Jac_B(self, J, B):
+    def NR_construct_Jac_B(self,J,B):
         """
         Constructs the Jacobian matrix (J) and right-hand side vector (B) for the Newton-Raphson solution 
         of the Poisson equation on a 3D grid, accounting for both interior and boundary grid points.
@@ -750,14 +750,12 @@ class Interface3D(object):
         For boundary points, the method applies appropriate boundary conditions (Dirichlet or Neumann) by 
         modifying J and B accordingly, based on the type of boundary (xmin, xmax, ymin, ymax, zmin, zmax, or Dirichlet).
         After assembling the contributions, the sign of B is flipped for nonzero entries for the Newton-Raphson iteration.
-        
         Parameters
         ----------
         J : numpy.ndarray
             The Jacobian matrix to be constructed/updated (shape: [Np, Np], where Np is the number of grid points).
         B : numpy.ndarray
             The right-hand side vector to be constructed/updated (shape: [Np]).
-            
         Notes
         -----
         - Assumes that self.grid, self.eps, self.phi, self.phi_old, self.free_charge, self.fixed_charge, 
@@ -766,40 +764,49 @@ class Interface3D(object):
         - The method modifies J and B in place.
         """
         # construct the Jacobian and B for the Poisson equation
-        
-        # number of grid points in x,y,z direction
-        Nx, Ny, Nz = map(int, self.grid.shape[:3])
-        
-        idx_grid_within = [i for i, b in enumerate(self.boudnary_points) if b == "in"]
-        idx_grid_boundary = list(set(range(self.grid.Np)) - set(idx_grid_within))
-        
+        def average_eps(eps1, eps2, mode:str='harmonic'):
+            if mode == 'arithmetic':
+                return 0.5 * (eps1 + eps2)
+            elif mode == 'harmonic':
+                return 2.0 * eps1 * eps2 / (eps1 + eps2)
+        average_mode = self.average_mode
+        Nx = self.grid.shape[0];Ny = self.grid.shape[1];Nz = self.grid.shape[2]
         for gp_index in range(self.grid.Np):
             if self.boudnary_points[gp_index] == "in":
-                flux_xm_J = 0.5 * eps0 * self.grid.surface_grid[gp_index, 0] * (np.roll(self.eps,     -1)[gp_index] + self.eps[gp_index]) / np.abs(np.roll(self.grid.grid_coord,     -1)[gp_index, 0] - self.grid.grid_coord[gp_index, 0])
-                flux_xp_J = 0.5 * eps0 * self.grid.surface_grid[gp_index, 0] * (np.roll(self.eps,     +1)[gp_index] + self.eps[gp_index]) / np.abs(np.roll(self.grid.grid_coord,     +1)[gp_index, 0] - self.grid.grid_coord[gp_index, 0])
-                flux_ym_J = 0.5 * eps0 * self.grid.surface_grid[gp_index, 1] * (np.roll(self.eps,    -Nx)[gp_index] + self.eps[gp_index]) / np.abs(np.roll(self.grid.grid_coord,    -Nx)[gp_index, 1] - self.grid.grid_coord[gp_index, 1])
-                flux_yp_J = 0.5 * eps0 * self.grid.surface_grid[gp_index, 1] * (np.roll(self.eps,    +Nx)[gp_index] + self.eps[gp_index]) / np.abs(np.roll(self.grid.grid_coord,    +Nx)[gp_index, 1] - self.grid.grid_coord[gp_index, 1])
-                flux_zm_J = 0.5 * eps0 * self.grid.surface_grid[gp_index, 2] * (np.roll(self.eps, -Nx*Ny)[gp_index] + self.eps[gp_index]) / np.abs(np.roll(self.grid.grid_coord, -Nx*Ny)[gp_index, 2] - self.grid.grid_coord[gp_index, 2])
-                flux_zp_J = 0.5 * eps0 * self.grid.surface_grid[gp_index, 2] * (np.roll(self.eps, +Nx*Ny)[gp_index] + self.eps[gp_index]) / np.abs(np.roll(self.grid.grid_coord, +Nx*Ny)[gp_index, 2] - self.grid.grid_coord[gp_index, 2])
+                flux_xm_J = self.grid.surface_grid[gp_index,0]*eps0*average_eps(self.eps[gp_index-1],self.eps[gp_index],mode = average_mode)\
+                /abs(self.grid.grid_coord[gp_index,0]-self.grid.grid_coord[gp_index-1,0])
+                flux_xm_B = flux_xm_J*(self.phi[gp_index-1]-self.phi[gp_index])
+
+                flux_xp_J = self.grid.surface_grid[gp_index,0]*eps0*average_eps(self.eps[gp_index+1],self.eps[gp_index],mode = average_mode)\
+                /abs(self.grid.grid_coord[gp_index+1,0]-self.grid.grid_coord[gp_index,0])
+                flux_xp_B = flux_xp_J*(self.phi[gp_index+1]-self.phi[gp_index])
                 
-                flux_xm_B = flux_xm_J*(np.roll(self.phi,     -1)[gp_index]-self.phi[gp_index])
-                flux_xp_B = flux_xp_J*(np.roll(self.phi,     +1)[gp_index]-self.phi[gp_index])
-                flux_ym_B = flux_ym_J*(np.roll(self.phi,    -Nx)[gp_index]-self.phi[gp_index])
-                flux_yp_B = flux_yp_J*(np.roll(self.phi,    +Nx)[gp_index]-self.phi[gp_index])
-                flux_zm_B = flux_zm_J*(np.roll(self.phi, -Nx*Ny)[gp_index]-self.phi[gp_index])
-                flux_zp_B = flux_zp_J*(np.roll(self.phi, +Nx*Ny)[gp_index]-self.phi[gp_index])
+                flux_ym_J = self.grid.surface_grid[gp_index,1]*eps0*average_eps(self.eps[gp_index-Nx],self.eps[gp_index],mode = average_mode)\
+                /abs(self.grid.grid_coord[gp_index-Nx,1]-self.grid.grid_coord[gp_index,1])
+                flux_ym_B = flux_ym_J*(self.phi[gp_index-Nx]-self.phi[gp_index])
+
+                flux_yp_J = self.grid.surface_grid[gp_index,1]*eps0*average_eps(self.eps[gp_index+Nx],self.eps[gp_index],mode = average_mode)\
+                /abs(self.grid.grid_coord[gp_index+Nx,1]-self.grid.grid_coord[gp_index,1])
+                flux_yp_B = flux_yp_J*(self.phi[gp_index+Nx]-self.phi[gp_index])
+
+                flux_zm_J = self.grid.surface_grid[gp_index,2]*eps0*average_eps(self.eps[gp_index-Nx*Ny],self.eps[gp_index],mode = average_mode)\
+                /abs(self.grid.grid_coord[gp_index-Nx*Ny,2]-self.grid.grid_coord[gp_index,2])
+                flux_zm_B = flux_zm_J*(self.phi[gp_index-Nx*Ny]-self.phi[gp_index])
+
+                flux_zp_J = self.grid.surface_grid[gp_index,2]*eps0*average_eps(self.eps[gp_index+Nx*Ny],self.eps[gp_index],mode = average_mode)\
+                /abs(self.grid.grid_coord[gp_index+Nx*Ny,2]-self.grid.grid_coord[gp_index,2])
+                flux_zp_B = flux_zp_J*(self.phi[gp_index+Nx*Ny]-self.phi[gp_index])
 
                 # add flux term to matrix J
-                J[gp_index, gp_index] = - (flux_xm_J+flux_xp_J+flux_ym_J+flux_yp_J+flux_zm_J+flux_zp_J) \
-                                        + elementary_charge * self.free_charge[gp_index] * ( \
-                                            -np.sign(self.free_charge[gp_index]))/self.kBT*\
+                J[gp_index,gp_index] = -(flux_xm_J+flux_xp_J+flux_ym_J+flux_yp_J+flux_zm_J+flux_zp_J)\
+                    +elementary_charge*self.free_charge[gp_index]*(-np.sign(self.free_charge[gp_index]))/self.kBT*\
                     np.exp(-np.sign(self.free_charge[gp_index])*(self.phi[gp_index]-self.phi_old[gp_index])/self.kBT)
-                J[gp_index, gp_index    -1] = flux_xm_J
-                J[gp_index, gp_index    +1] = flux_xp_J
-                J[gp_index, gp_index   -Nx] = flux_ym_J
-                J[gp_index, gp_index   +Nx] = flux_yp_J
-                J[gp_index, gp_index-Nx*Ny] = flux_zm_J
-                J[gp_index, gp_index+Nx*Ny] = flux_zp_J
+                J[gp_index,gp_index-1] = flux_xm_J
+                J[gp_index,gp_index+1] = flux_xp_J
+                J[gp_index,gp_index-Nx] = flux_ym_J
+                J[gp_index,gp_index+Nx] = flux_yp_J
+                J[gp_index,gp_index-Nx*Ny] = flux_zm_J
+                J[gp_index,gp_index+Nx*Ny] = flux_zp_J
 
 
                 # add flux term to matrix B
@@ -807,7 +814,7 @@ class Interface3D(object):
                 B[gp_index] += elementary_charge*self.free_charge[gp_index]*np.exp(-np.sign(self.free_charge[gp_index])\
                     *(self.phi[gp_index]-self.phi_old[gp_index])/self.kBT)+elementary_charge*self.fixed_charge[gp_index]
 
-            else: # boundary points
+            else:# boundary points
                 J[gp_index,gp_index] = 1.0 # correct for both Dirichlet and Neumann boundary condition
                 
                 if self.boudnary_points[gp_index] == "xmin":   
@@ -832,6 +839,4 @@ class Interface3D(object):
                     B[gp_index] = (self.phi[gp_index]-self.lead_gate_potential[gp_index])
 
             if B[gp_index]!=0: # for convenience change the sign of B in later NR iteration
-                B[gp_index] = -B[gp_index]
-        
-        
+                B[gp_index] = -B[gp_index]    
