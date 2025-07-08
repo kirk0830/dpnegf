@@ -1,12 +1,14 @@
-import numpy as np 
+import logging
+
+import numpy as np
+from scipy.constants import epsilon_0 as eps0  #TODO:later add to untils.constants.py
+from scipy.sparse import csr_matrix, lil_array
+from scipy.sparse.linalg import spsolve
+
 # import pyamg #TODO: later add it to optional dependencies,like sisl
 # from pyamg.gallery import poisson
-from dpnegf.utils.constants import elementary_charge
-from dpnegf.utils.constants import Boltzmann, eV2J
-from scipy.constants import epsilon_0 as eps0  #TODO:later add to untils.constants.py
-from scipy.sparse import csr_matrix
-from scipy.sparse.linalg import spsolve
-import logging
+from dpnegf.utils.constants import elementary_charge, Boltzmann, eV2J
+
 #eps0 = 8.854187817e-12 # in the unit of F/m
 # As length in deeptb is in the unit of Angstrom, the unit of eps0 is F/Angstrom
 eps0 = eps0*1e-10 # in the unit of F/Angstrom
@@ -187,8 +189,6 @@ class Grid(object):
             Array of the same length as `x`, where each element represents the Voronoi segment length
             corresponding to each point in `x`.
         """
-        # compute the length of the Voronoi segment of a one-dimensional array x
-        # speed-up for one times after using np.roll() by kirk0830
         x = np.array(x) 
         xd = (np.abs(x - np.roll(x, -1)) + np.abs(x - np.roll(x, 1))) / 2
         xd[0] = np.abs(x[0] - x[1]) / 2
@@ -677,13 +677,36 @@ class Interface3D(object):
         )
         return x
     
-    def build_newton_raphson_jacobian_rhsvec(self, jac, b):
+    def build_newton_raphson_jacobian_rhsvec(self, 
+                                             jac: lil_array, 
+                                             b: np.ndarray):
         '''
         the speed-up version of NR_construct_Jac_B
+        
+        Parameters
+        ----------
+        jac : lil_array
+            The Jacobian matrix in LIL format to be constructed/updated. Ideally
+            its dense matrix form would be in shape of (Np, Np), where Np is the
+            number of grid points (a grid for another grid).
+        b : np.ndarray
+            The right-hand side vector to be constructed/updated. Ideally its
+            shape would be (Np,), where Np is the number of grid points.
+        
+        Notes
+        -----
+        this method constructs the Jacobian matrix and right-hand side vector in-place
         '''
+        # sanity check on datatype
+        assert isinstance(jac, lil_array), "Jacobian must be a scipy sparse csr_matrix"
+        assert isinstance(b, np.ndarray), "b must be a numpy array"
+        
+        # however, is lil a suitable choice for the Jacobian in the following
+        # calculation?
+        
         # number of grid points in x,y,z direction
         Nx, Ny, _ = map(int, self.grid.shape[:3])
-        idim = [0, 0, 1, 1, 2, 2]
+        idim   = [ 0, 0,   1,  1,      2,     2]
         ishift = [-1, 1, -Nx, Nx, -Nx*Ny, Nx*Ny]
         
         # index of those grid points that are within the bulk region
