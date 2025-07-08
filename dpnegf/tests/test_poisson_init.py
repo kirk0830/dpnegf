@@ -58,21 +58,21 @@ def test_grid_atom_index():
         grid_pos = grid.grid_coord[grid_idx]
         assert np.allclose(atom_pos, grid_pos, atol=1e-3)
 
-def test_grid_cal_vorlen_uniform():
+def test_grid_calculate_voronoi_cell_length_uniform():
     # Uniform grid
     x = np.array([0.0, 1.0, 2.0, 3.0])
     grid = Grid(x, x, x, x, x, x)
-    vorlen = grid.cal_vorlen(x)
+    vorlen = grid.calculate_voronoi_cell_length(x)
     # Endpoints: half the distance to neighbor, middle: average of neighbors
     assert np.isclose(vorlen[0], 0.5)
     assert np.isclose(vorlen[-1], 0.5)
     assert np.allclose(vorlen[1:-1], 1.0)
 
-def test_grid_cal_vorlen_nonuniform():
+def test_grid_calculate_voronoi_cell_length_nonuniform():
     # Non-uniform grid
     x = np.array([0.0, 1.0, 3.0, 6.0])
     grid = Grid(x, x, x, x, x, x)
-    vorlen = grid.cal_vorlen(x)
+    vorlen = grid.calculate_voronoi_cell_length(x)
     assert np.isclose(vorlen[0], 0.5)
     assert np.isclose(vorlen[1], (1.0 + 2.0) / 2)
     assert np.isclose(vorlen[2], (2.0 + 3.0) / 2)

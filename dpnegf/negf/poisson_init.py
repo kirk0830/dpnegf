@@ -16,6 +16,7 @@ log = logging.getLogger(__name__)
 class Grid(object):
     """
     Represents a 3D grid structure for spatial discretization.
+
     Parameters
     ----------
     xg : array_like
@@ -30,6 +31,7 @@ class Grid(object):
         1D array of atom coordinates along the y-axis. Atoms must be within the grid bounds.
     za : array_like
         1D array of atom coordinates along the z-axis. Atoms must be within the grid bounds.
+
     Attributes
     ----------
     xg, yg, zg : ndarray
@@ -50,74 +52,107 @@ class Grid(object):
         Array of shape (Np, 3) containing the surface area of each grid point along x, y, z axes.
     """
     # define the grid in 3D space
-    def __init__(self,xg,yg,zg,xa,ya,za):
-        # xg,yg,zg are the coordinates of the basic grid points
+    def __init__(self, xg, yg, zg, xa, ya, za):
+        # xg, yg, zg are the coordinates of the basic grid points
         self.xg = xg
         self.yg = yg
         self.zg = zg
-        # xa,ya,za are the coordinates of the atoms
+        
+        self.Na = len(xa) # number of atoms
+        
+        # xa, ya, za are the coordinates of the atoms
         # atom should be within the grid
         assert np.min(xa) >= np.min(xg) and np.max(xa) <= np.max(xg)
         assert np.min(ya) >= np.min(yg) and np.max(ya) <= np.max(yg)
         assert np.min(za) >= np.min(zg) and np.max(za) <= np.max(zg)
 
-        self.Na = len(xa) # number of atoms
-        uxa = np.unique(xa).round(decimals=6);uya = np.unique(ya).round(decimals=6);uza = np.unique(za).round(decimals=6)
-        # x,y,z are the coordinates of the grid points
-        self.xall = np.unique(np.concatenate((uxa, self.xg),0).round(decimals=3)) # unique results are sorted
-        self.yall = np.unique(np.concatenate((uya, self.yg),0).round(decimals=3))
-        self.zall = np.unique(np.concatenate((uza, self.zg),0).round(decimals=3))
-        self.shape = (len(self.xall),len(self.yall),len(self.zall))
-
+        # get the unique coordinates of atomic positions
+        # actually the grid points should also be unique, but due to the definition
+        # , this property can always hold
+        uxa, uya, uza = map(lambda arr: np.unique(arr).round(decimals=6), (xa, ya, za))
         
+        # merge the grid points and atom positions at decimals=3
+        # because the atom positions are for point-charge model
+        self.xall, self.yall, self.zall = map(
+            lambda grid, atom: np.concatenate((grid, atom), axis=0).round(decimals=3), 
+            ((self.xg, uxa), (self.yg, uya), (self.zg, uza)))
+        self.shape = (len(self.xall), len(self.yall), len(self.zall))
 
         # create meshgrid
-        xmesh,ymesh,zmesh = np.meshgrid(self.xall,self.yall,self.zall)
-        xmesh = xmesh.flatten()
-        ymesh = ymesh.flatten()
-        zmesh = zmesh.flatten()
-        self.grid_coord = np.array([xmesh,ymesh,zmesh]).T #(Np,3)
-        sorted_indices = np.lexsort((xmesh,ymesh,zmesh))
-        self.grid_coord = self.grid_coord[sorted_indices] # sort the grid points firstly along x, then y, lastly z        
-        ## check the number of grid points
-        self.Np = int(len(self.xall)*len(self.yall)*len(self.zall))
+        xmesh, ymesh, zmesh = [mesh.flatten() 
+                               for mesh in np.meshgrid(self.xall, self.yall, self.zall)]
+        
+        self.grid_coord = np.array([xmesh, ymesh, zmesh]).T #(Np,3)
+        sorted_indices = np.lexsort((xmesh, ymesh, zmesh))
+        # sort the grid points firstly along x, then y, lastly z 
+        self.grid_coord = self.grid_coord[sorted_indices]
+        
+        # check the number of grid points
+        self.Np = int(len(self.xall) * len(self.yall) * len(self.zall))
         assert self.Np == len(xmesh)
         assert self.grid_coord.shape[0] == self.Np
         
-        log.info(msg="Number of grid points: {:.1f}   Number of atoms: {:.1f}".format(float(self.Np),self.Na))
+        log.info(f"Number of grid points: {self.Np}\n"
+                 f"Number of atoms: {self.Na}")
         # print('Number of grid points: ',self.Np,' grid shape: ',self.grid_coord.shape,' Number of atoms: ',self.Na)
 
         # find the index of the atoms in the grid
-        self.atom_index_dict = self.get_atom_index(xa,ya,za)
+        # x75 speed-up
+        self.atom_index_dict = self.indexing_atom_on_grid(xa, ya, za)
 
-
-        # create surface area for each grid point along x,y,z axis
-        # each grid point corresponds to a Voronoi cell(box)
+        # Voronoi tesselation for each grid point
+        # create surface area for each grid point along x, y, z axis
+        # each grid point corresponds to a Voronoi cell (box)
         surface_grid = np.zeros((self.Np, 3))
-        x_vorlen, y_vorlen, z_vorlen = map(self.cal_vorlen, (self.xall, self.yall, self.zall))
+        # x2 speed-up
+        lvoro_x, lvoro_y, lvoro_z = map(self.calculate_voronoi_cell_length, 
+                                        (self.xall, self.yall, self.zall))
         
-        XD, YD = np.meshgrid(x_vorlen, y_vorlen)
+        # calculate the surface area of each Voronoi cell along x, y, z axis
+        XD, YD = np.meshgrid(lvoro_x, lvoro_y)
         ## surface along x-axis (yz-plane)
-        ax,bx = np.meshgrid(YD.flatten(),z_vorlen)
-        surface_grid[:,0] = abs((ax*bx).flatten())
+        ax, bx = np.meshgrid(YD.flatten(), lvoro_z)
+        surface_grid[:, 0] = abs((ax*bx).flatten())
         ## surface along y-axis (xz-plane) 
-        ay,by = np.meshgrid(XD.flatten(),z_vorlen)
-        surface_grid[:,1] = abs((ay*by).flatten())
+        ay, by = np.meshgrid(XD.flatten(), lvoro_z)
+        surface_grid[:, 1] = abs((ay*by).flatten())
         ## surface along z-axis (xy-plane)
-        az,_ = np.meshgrid((XD*YD).flatten(),self.zall)
-        surface_grid[:,2] = abs(az.flatten())
+        az, _ = np.meshgrid((XD*YD).flatten(), self.zall)
+        surface_grid[:, 2] = abs(az.flatten())
 
-        self.surface_grid = surface_grid  # grid points order are the same as that of  self.grid_coord
+        self.surface_grid = surface_grid
+        # grid points order are the same as that of self.grid_coord
         
+    def indexing_atom_on_grid(self, xa, ya, za, thr=1e-3):
+        '''
+        indexing atom on grid points based on their coordinates.
+        '''
+        xa, ya, za = map(np.asarray, (xa, ya, za))
+        assert xa.shape == ya.shape == za.shape, "xa, ya, za must have the same shape"
+        na, _ = xa.shape
+        # allocate the indexing dictionary
+        indexing = dict(zip(range(na), np.zeros(na, dtype=int)))
+        for ia, (x, y, z) in enumerate(zip(xa, ya, za)):
+            # find the index of the atom in the grid
+            index = np.where(
+                (np.abs(self.grid_coord[:, 0] - x) < thr) &
+                (np.abs(self.grid_coord[:, 1] - y) < thr) &
+                (np.abs(self.grid_coord[:, 2] - z) < thr)
+            )[0]
+            if len(index) > 0:
+                indexing[ia] = index[0]
+        return indexing
 
-    def get_atom_index(self,xa,ya,za):
+    def get_atom_index(self, xa, ya, za):
         """
         Finds the indices of atoms in the grid based on their coordinates.
+        
         Parameters
         ----------
             xa (array-like): Array of x-coordinates of atoms.
             ya (array-like): Array of y-coordinates of atoms.
             za (array-like): Array of z-coordinates of atoms.
+        
         Returns
         ---------
             dict: A dictionary where keys are atom indices and values are the corresponding
@@ -133,7 +168,7 @@ class Grid(object):
                     swap.update({atom_index:gp_index})
         return swap
     
-    def cal_vorlen(self, x):
+    def calculate_voronoi_cell_length(self, x):
         """
         Compute the length of the Voronoi segment for each point in a one-dimensional array.
 
@@ -158,6 +193,33 @@ class Grid(object):
         xd = (np.abs(x - np.roll(x, -1)) + np.abs(x - np.roll(x, 1))) / 2
         xd[0] = np.abs(x[0] - x[1]) / 2
         xd[-1] = np.abs(x[-1] - x[-2]) / 2
+        return xd
+
+    def cal_vorlen(self,x):
+        """
+        Compute the length of the Voronoi segment for each point in a one-dimensional array.
+
+        For each point in the input array `x`, this function calculates the length of the Voronoi segment,
+        which is defined as half the distance to the neighboring points. The endpoints are handled by taking
+        half the distance to their single neighbor.
+
+        Parameters
+        ----------
+        x : array_like
+            One-dimensional array of points (must be indexable and support len()).
+
+        Returns
+        -------
+        xd : numpy.ndarray
+            Array of the same length as `x`, where each element represents the Voronoi segment length
+            corresponding to each point in `x`.
+        """
+        # compute the length of the Voronoi segment of a one-dimensional array x
+        xd = np.zeros(len(x))
+        xd[0] = abs(x[0]-x[1])/2
+        xd[-1] = abs(x[-1]-x[-2])/2
+        for i in range(1,len(x)-1):
+            xd[i] = (abs(x[i]-x[i-1])+abs(x[i]-x[i+1]))/2
         return xd
 
 class region(object):
@@ -615,7 +677,48 @@ class Interface3D(object):
         )
         return x
     
-    def NR_construct_Jac_B(self,J,B):
+    def build_newton_raphson_jacobian_rhsvec(self, jac, b):
+        '''
+        the speed-up version of NR_construct_Jac_B
+        '''
+        # number of grid points in x,y,z direction
+        Nx, Ny, _ = map(int, self.grid.shape[:3])
+        idim = [0, 0, 1, 1, 2, 2]
+        ishift = [-1, 1, -Nx, Nx, -Nx*Ny, Nx*Ny]
+        
+        # index of those grid points that are within the bulk region
+        igbulk = [i for i, b in enumerate(self.boudnary_points) if b == "in"]
+        # numpy parallelization
+        # Jacobian
+        flux_j = 0.5 * eps0 * np.array([
+            self.grid.surface_grid[igbulk, d] * \
+            (np.roll(self.eps, s)[igbulk] + self.eps[igbulk]) / \
+            np.abs(np.roll(self.grid.grid_coord, s)[igbulk, d] \
+                - self.grid.grid_coord[igbulk, d])
+        for d, s in zip(idim, ishift)])
+        jac = np.diag(np.sum(flux_j, axis=0) - \
+                elementary_charge * np.abs(self.free_charge[igbulk]) / self.kBT \
+                * np.exp(-np.sign(self.free_charge[igbulk]) \
+                    * (self.phi[igbulk] - self.phi_old[igbulk]) / self.kBT
+                    )
+                )  # diagonal part of Jacobian
+        # off-diagonal part of Jacobian
+        for d, s in zip(idim, ishift):
+            jac[igbulk, np.roll(igbulk, s)] += flux_j[d]
+        # right-hand side vector
+        flux_b = flux_j * (np.roll(self.phi, ishift)[igbulk] - self.phi[igbulk])
+        b[igbulk] = np.sum(flux_b, axis=0)
+        b[igbulk] += elementary_charge * self.free_charge[igbulk] \
+            * np.exp(-np.sign(self.free_charge[igbulk]) \
+                * (self.phi[igbulk] - self.phi_old[igbulk]) / self.kBT)
+        b[igbulk] += self.fixed_charge[igbulk] * elementary_charge
+        
+        # index of those grid points that are at the boundary region
+        igsurf = list(set(range(self.grid.Np)) - set(igbulk))
+        jac[igsurf, igsurf] = 1.0
+
+    
+    def NR_construct_Jac_B(self, J, B):
         """
         Constructs the Jacobian matrix (J) and right-hand side vector (B) for the Newton-Raphson solution 
         of the Poisson equation on a 3D grid, accounting for both interior and boundary grid points.
@@ -624,12 +727,14 @@ class Interface3D(object):
         For boundary points, the method applies appropriate boundary conditions (Dirichlet or Neumann) by 
         modifying J and B accordingly, based on the type of boundary (xmin, xmax, ymin, ymax, zmin, zmax, or Dirichlet).
         After assembling the contributions, the sign of B is flipped for nonzero entries for the Newton-Raphson iteration.
+        
         Parameters
         ----------
         J : numpy.ndarray
             The Jacobian matrix to be constructed/updated (shape: [Np, Np], where Np is the number of grid points).
         B : numpy.ndarray
             The right-hand side vector to be constructed/updated (shape: [Np]).
+            
         Notes
         -----
         - Assumes that self.grid, self.eps, self.phi, self.phi_old, self.free_charge, self.fixed_charge, 
@@ -641,42 +746,37 @@ class Interface3D(object):
         
         # number of grid points in x,y,z direction
         Nx, Ny, Nz = map(int, self.grid.shape[:3])
+        
+        idx_grid_within = [i for i, b in enumerate(self.boudnary_points) if b == "in"]
+        idx_grid_boundary = list(set(range(self.grid.Np)) - set(idx_grid_within))
+        
         for gp_index in range(self.grid.Np):
             if self.boudnary_points[gp_index] == "in":
-                flux_xm_J = self.grid.surface_grid[gp_index,0]*eps0*(self.eps[gp_index-1]+self.eps[gp_index])*0.5\
-                /abs(self.grid.grid_coord[gp_index,0]-self.grid.grid_coord[gp_index-1,0])
-                flux_xm_B = flux_xm_J*(self.phi[gp_index-1]-self.phi[gp_index])
-
-                flux_xp_J = self.grid.surface_grid[gp_index,0]*eps0*(self.eps[gp_index+1]+self.eps[gp_index])*0.5\
-                /abs(self.grid.grid_coord[gp_index+1,0]-self.grid.grid_coord[gp_index,0])
-                flux_xp_B = flux_xp_J*(self.phi[gp_index+1]-self.phi[gp_index])
+                flux_xm_J = 0.5 * eps0 * self.grid.surface_grid[gp_index, 0] * (np.roll(self.eps,     -1)[gp_index] + self.eps[gp_index]) / np.abs(np.roll(self.grid.grid_coord,     -1)[gp_index, 0] - self.grid.grid_coord[gp_index, 0])
+                flux_xp_J = 0.5 * eps0 * self.grid.surface_grid[gp_index, 0] * (np.roll(self.eps,     +1)[gp_index] + self.eps[gp_index]) / np.abs(np.roll(self.grid.grid_coord,     +1)[gp_index, 0] - self.grid.grid_coord[gp_index, 0])
+                flux_ym_J = 0.5 * eps0 * self.grid.surface_grid[gp_index, 1] * (np.roll(self.eps,    -Nx)[gp_index] + self.eps[gp_index]) / np.abs(np.roll(self.grid.grid_coord,    -Nx)[gp_index, 1] - self.grid.grid_coord[gp_index, 1])
+                flux_yp_J = 0.5 * eps0 * self.grid.surface_grid[gp_index, 1] * (np.roll(self.eps,    +Nx)[gp_index] + self.eps[gp_index]) / np.abs(np.roll(self.grid.grid_coord,    +Nx)[gp_index, 1] - self.grid.grid_coord[gp_index, 1])
+                flux_zm_J = 0.5 * eps0 * self.grid.surface_grid[gp_index, 2] * (np.roll(self.eps, -Nx*Ny)[gp_index] + self.eps[gp_index]) / np.abs(np.roll(self.grid.grid_coord, -Nx*Ny)[gp_index, 2] - self.grid.grid_coord[gp_index, 2])
+                flux_zp_J = 0.5 * eps0 * self.grid.surface_grid[gp_index, 2] * (np.roll(self.eps, +Nx*Ny)[gp_index] + self.eps[gp_index]) / np.abs(np.roll(self.grid.grid_coord, +Nx*Ny)[gp_index, 2] - self.grid.grid_coord[gp_index, 2])
                 
-                flux_ym_J = self.grid.surface_grid[gp_index,1]*eps0*(self.eps[gp_index-Nx]+self.eps[gp_index])*0.5\
-                /abs(self.grid.grid_coord[gp_index-Nx,1]-self.grid.grid_coord[gp_index,1])
-                flux_ym_B = flux_ym_J*(self.phi[gp_index-Nx]-self.phi[gp_index])
-
-                flux_yp_J = self.grid.surface_grid[gp_index,1]*eps0*(self.eps[gp_index+Nx]+self.eps[gp_index])*0.5\
-                /abs(self.grid.grid_coord[gp_index+Nx,1]-self.grid.grid_coord[gp_index,1])
-                flux_yp_B = flux_yp_J*(self.phi[gp_index+Nx]-self.phi[gp_index])
-
-                flux_zm_J = self.grid.surface_grid[gp_index,2]*eps0*(self.eps[gp_index-Nx*Ny]+self.eps[gp_index])*0.5\
-                /abs(self.grid.grid_coord[gp_index-Nx*Ny,2]-self.grid.grid_coord[gp_index,2])
-                flux_zm_B = flux_zm_J*(self.phi[gp_index-Nx*Ny]-self.phi[gp_index])
-
-                flux_zp_J = self.grid.surface_grid[gp_index,2]*eps0*(self.eps[gp_index+Nx*Ny]+self.eps[gp_index])*0.5\
-                /abs(self.grid.grid_coord[gp_index+Nx*Ny,2]-self.grid.grid_coord[gp_index,2])
-                flux_zp_B = flux_zp_J*(self.phi[gp_index+Nx*Ny]-self.phi[gp_index])
+                flux_xm_B = flux_xm_J*(np.roll(self.phi,     -1)[gp_index]-self.phi[gp_index])
+                flux_xp_B = flux_xp_J*(np.roll(self.phi,     +1)[gp_index]-self.phi[gp_index])
+                flux_ym_B = flux_ym_J*(np.roll(self.phi,    -Nx)[gp_index]-self.phi[gp_index])
+                flux_yp_B = flux_yp_J*(np.roll(self.phi,    +Nx)[gp_index]-self.phi[gp_index])
+                flux_zm_B = flux_zm_J*(np.roll(self.phi, -Nx*Ny)[gp_index]-self.phi[gp_index])
+                flux_zp_B = flux_zp_J*(np.roll(self.phi, +Nx*Ny)[gp_index]-self.phi[gp_index])
 
                 # add flux term to matrix J
-                J[gp_index,gp_index] = -(flux_xm_J+flux_xp_J+flux_ym_J+flux_yp_J+flux_zm_J+flux_zp_J)\
-                    +elementary_charge*self.free_charge[gp_index]*(-np.sign(self.free_charge[gp_index]))/self.kBT*\
+                J[gp_index, gp_index] = - (flux_xm_J+flux_xp_J+flux_ym_J+flux_yp_J+flux_zm_J+flux_zp_J) \
+                                        + elementary_charge * self.free_charge[gp_index] * ( \
+                                            -np.sign(self.free_charge[gp_index]))/self.kBT*\
                     np.exp(-np.sign(self.free_charge[gp_index])*(self.phi[gp_index]-self.phi_old[gp_index])/self.kBT)
-                J[gp_index,gp_index-1] = flux_xm_J
-                J[gp_index,gp_index+1] = flux_xp_J
-                J[gp_index,gp_index-Nx] = flux_ym_J
-                J[gp_index,gp_index+Nx] = flux_yp_J
-                J[gp_index,gp_index-Nx*Ny] = flux_zm_J
-                J[gp_index,gp_index+Nx*Ny] = flux_zp_J
+                J[gp_index, gp_index    -1] = flux_xm_J
+                J[gp_index, gp_index    +1] = flux_xp_J
+                J[gp_index, gp_index   -Nx] = flux_ym_J
+                J[gp_index, gp_index   +Nx] = flux_yp_J
+                J[gp_index, gp_index-Nx*Ny] = flux_zm_J
+                J[gp_index, gp_index+Nx*Ny] = flux_zp_J
 
 
                 # add flux term to matrix B
@@ -684,7 +784,7 @@ class Interface3D(object):
                 B[gp_index] += elementary_charge*self.free_charge[gp_index]*np.exp(-np.sign(self.free_charge[gp_index])\
                     *(self.phi[gp_index]-self.phi_old[gp_index])/self.kBT)+elementary_charge*self.fixed_charge[gp_index]
 
-            else:# boundary points
+            else: # boundary points
                 J[gp_index,gp_index] = 1.0 # correct for both Dirichlet and Neumann boundary condition
                 
                 if self.boudnary_points[gp_index] == "xmin":   
