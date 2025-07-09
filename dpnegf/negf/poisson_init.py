@@ -638,80 +638,20 @@ class Interface3D(object):
         - Uses constants such as eps0 and elementary_charge, which must be defined in the scope.
         - The method modifies J and B in place.
         """
-        # construct the Jacobian and B for the Poisson equation
-        def average_eps(eps1, eps2, mode:str='harmonic'):
-            if mode == 'arithmetic':
-                return 0.5 * (eps1 + eps2)
-            elif mode == 'harmonic':
-                return 2.0 * eps1 * eps2 / (eps1 + eps2)
-        average_mode = self.average_mode
-        Nx = self.grid.shape[0];Ny = self.grid.shape[1];Nz = self.grid.shape[2]
-        for gp_index in range(self.grid.Np):
-            if self.boudnary_points[gp_index] == "in":
-                flux_xm_J = self.grid.surface_grid[gp_index,0]*eps0*average_eps(self.eps[gp_index-1],self.eps[gp_index],mode = average_mode)\
-                /abs(self.grid.grid_coord[gp_index,0]-self.grid.grid_coord[gp_index-1,0])
-                flux_xm_B = flux_xm_J*(self.phi[gp_index-1]-self.phi[gp_index])
+        from dpnegf.negf.newton_raphson_speed_up import calculate as my_speed_up_kernel
+        nx, ny, nz = self.grid.shape[:3]
+        my_speed_up_kernel(jinout=J, 
+                           binout=B, 
+                           grid_dim=(nx, ny, nz),
+                           gridpoint_coords=self.grid.grid_coord,
+                           gridpoint_typ=self.boudnary_points,
+                           gridpoint_surfarea=self.grid.surface_grid,
+                           eps=self.eps,
+                           phi=self.phi,
+                           phi_=self.phi_old,
+                           free_chr=self.free_charge,
+                           fixed_chr=self.fixed_charge,
+                           dirichlet_pot=self.lead_gate_potential,
+                           eps0=eps0,
+                           beta=1.0/self.kBT)
 
-                flux_xp_J = self.grid.surface_grid[gp_index,0]*eps0*average_eps(self.eps[gp_index+1],self.eps[gp_index],mode = average_mode)\
-                /abs(self.grid.grid_coord[gp_index+1,0]-self.grid.grid_coord[gp_index,0])
-                flux_xp_B = flux_xp_J*(self.phi[gp_index+1]-self.phi[gp_index])
-                
-                flux_ym_J = self.grid.surface_grid[gp_index,1]*eps0*average_eps(self.eps[gp_index-Nx],self.eps[gp_index],mode = average_mode)\
-                /abs(self.grid.grid_coord[gp_index-Nx,1]-self.grid.grid_coord[gp_index,1])
-                flux_ym_B = flux_ym_J*(self.phi[gp_index-Nx]-self.phi[gp_index])
-
-                flux_yp_J = self.grid.surface_grid[gp_index,1]*eps0*average_eps(self.eps[gp_index+Nx],self.eps[gp_index],mode = average_mode)\
-                /abs(self.grid.grid_coord[gp_index+Nx,1]-self.grid.grid_coord[gp_index,1])
-                flux_yp_B = flux_yp_J*(self.phi[gp_index+Nx]-self.phi[gp_index])
-
-                flux_zm_J = self.grid.surface_grid[gp_index,2]*eps0*average_eps(self.eps[gp_index-Nx*Ny],self.eps[gp_index],mode = average_mode)\
-                /abs(self.grid.grid_coord[gp_index-Nx*Ny,2]-self.grid.grid_coord[gp_index,2])
-                flux_zm_B = flux_zm_J*(self.phi[gp_index-Nx*Ny]-self.phi[gp_index])
-
-                flux_zp_J = self.grid.surface_grid[gp_index,2]*eps0*average_eps(self.eps[gp_index+Nx*Ny],self.eps[gp_index],mode = average_mode)\
-                /abs(self.grid.grid_coord[gp_index+Nx*Ny,2]-self.grid.grid_coord[gp_index,2])
-                flux_zp_B = flux_zp_J*(self.phi[gp_index+Nx*Ny]-self.phi[gp_index])
-
-                # add flux term to matrix J
-                J[gp_index,gp_index] = -(flux_xm_J+flux_xp_J+flux_ym_J+flux_yp_J+flux_zm_J+flux_zp_J)\
-                    +elementary_charge*self.free_charge[gp_index]*(-np.sign(self.free_charge[gp_index]))/self.kBT*\
-                    np.exp(-np.sign(self.free_charge[gp_index])*(self.phi[gp_index]-self.phi_old[gp_index])/self.kBT)
-                J[gp_index,gp_index-1] = flux_xm_J
-                J[gp_index,gp_index+1] = flux_xp_J
-                J[gp_index,gp_index-Nx] = flux_ym_J
-                J[gp_index,gp_index+Nx] = flux_yp_J
-                J[gp_index,gp_index-Nx*Ny] = flux_zm_J
-                J[gp_index,gp_index+Nx*Ny] = flux_zp_J
-
-
-                # add flux term to matrix B
-                B[gp_index] = (flux_xm_B+flux_xp_B+flux_ym_B+flux_yp_B+flux_zm_B+flux_zp_B)
-                B[gp_index] += elementary_charge*self.free_charge[gp_index]*np.exp(-np.sign(self.free_charge[gp_index])\
-                    *(self.phi[gp_index]-self.phi_old[gp_index])/self.kBT)+elementary_charge*self.fixed_charge[gp_index]
-
-            else:# boundary points
-                J[gp_index,gp_index] = 1.0 # correct for both Dirichlet and Neumann boundary condition
-                
-                if self.boudnary_points[gp_index] == "xmin":   
-                    J[gp_index,gp_index+1] = -1.0
-                    B[gp_index] = (self.phi[gp_index]-self.phi[gp_index+1])
-                elif self.boudnary_points[gp_index] == "xmax":
-                    J[gp_index,gp_index-1] = -1.0
-                    B[gp_index] = (self.phi[gp_index]-self.phi[gp_index-1])
-                elif self.boudnary_points[gp_index] == "ymin":
-                    J[gp_index,gp_index+Nx] = -1.0
-                    B[gp_index] = (self.phi[gp_index]-self.phi[gp_index+Nx])
-                elif self.boudnary_points[gp_index] == "ymax":
-                    J[gp_index,gp_index-Nx] = -1.0
-                    B[gp_index] = (self.phi[gp_index]-self.phi[gp_index-Nx])
-                elif self.boudnary_points[gp_index] == "zmin":
-                    J[gp_index,gp_index+Nx*Ny] = -1.0
-                    B[gp_index] = (self.phi[gp_index]-self.phi[gp_index+Nx*Ny])
-                elif self.boudnary_points[gp_index] == "zmax":
-                    J[gp_index,gp_index-Nx*Ny] = -1.0
-                    B[gp_index] = (self.phi[gp_index]-self.phi[gp_index-Nx*Ny])
-                elif self.boudnary_points[gp_index] == "Dirichlet":
-                    B[gp_index] = (self.phi[gp_index]-self.lead_gate_potential[gp_index])
-
-            if B[gp_index]!=0: # for convenience change the sign of B in later NR iteration
-                B[gp_index] = -B[gp_index]           
