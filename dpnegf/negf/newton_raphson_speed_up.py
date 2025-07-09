@@ -27,11 +27,15 @@ class TestImposeJacobianBoundaryPerf(unittest.TestCase):
         self.nx, self.ny, self.nz = 100, 100, 100
         self.nr = self.nx * self.ny * self.nz
         # say we have 6 boundary types, each has 300 points
-        typ = ['xmin'] * 30 + ['xmax'] * 30 + ['ymin'] * 30 \
-            + ['ymax'] * 30 + ['zmin'] * 30 + ['zmax'] * 30
-        # and all others are of type "in"
-        typ += ['in'] * (self.nr - 180)
-        self.typ = np.array(typ, dtype=str)
+        typ = np.array(['****'] * self.nr, dtype=str).reshape((self.nx, self.ny, self.nz))
+        typ[typ == '****'] = 'in'
+        typ[   0,    :,  :] = 'xmin'
+        typ[  -1,    :,  :] = 'xmax'
+        typ[1:-1,    0,  :] = 'ymin'
+        typ[1:-1,   -1,  :] = 'ymax'
+        typ[1:-1, 1:-1,  0] = 'zmin'
+        typ[1:-1, 1:-1, -1] = 'zmax'
+        self.typ = typ.flatten()
         
     def test_impose_bound(self):
         # create a dummy inout matrix
@@ -67,13 +71,26 @@ class TestImposeJacobianBoundaryPerf(unittest.TestCase):
         print(f'_impose_j_bound took {time.time() - t:.4f} seconds')
     
         # check if the inout matrix is equal to the reference matrix
+        # check all diagonal elements
         self.assertTrue(all(inout[i, i] == ref[i, i] for i in range(self.nr)))
-        self.assertTrue(all(inout[i, i + 1] == ref[i, i + 1] for i in range(30)))
-        self.assertTrue(all(inout[i, i - 1] == ref[i, i - 1] for i in range(30, 60)))
-        self.assertTrue(all(inout[i, i + nx] == ref[i, i + nx] for i in range(60, 90)))
-        self.assertTrue(all(inout[i, i - nx] == ref[i, i - nx] for i in range(90, 120)))
-        self.assertTrue(all(inout[i, i + nx*ny] == ref[i, i + nx*ny] for i in range(120, 150)))
-        self.assertTrue(all(inout[i, i - nx*ny] == ref[i, i - nx*ny] for i in range(150, 180)))
+        # check xmin points
+        ind_xmin = np.where(self.typ == 'xmin')[0]
+        self.assertTrue(all(inout[i, i + 1] == ref[i, i + 1] for i in ind_xmin))
+        # check xmax points
+        ind_xmax = np.where(self.typ == 'xmax')[0]
+        self.assertTrue(all(inout[i, i - 1] == ref[i, i - 1] for i in ind_xmax))
+        # check ymin points
+        ind_ymin = np.where(self.typ == 'ymin')[0]
+        self.assertTrue(all(inout[i, i + nx] == ref[i, i + nx] for i in ind_ymin))
+        # check ymax points
+        ind_ymax = np.where(self.typ == 'ymax')[0]
+        self.assertTrue(all(inout[i, i - nx] == ref[i, i - nx] for i in ind_ymax))
+        # check zmin points
+        ind_zmin = np.where(self.typ == 'zmin')[0]
+        self.assertTrue(all(inout[i, i + nx*ny] == ref[i, i + nx*ny] for i in ind_zmin))
+        # check zmax points
+        ind_zmax = np.where(self.typ == 'zmax')[0]
+        self.assertTrue(all(inout[i, i - nx*ny] == ref[i, i - nx*ny] for i in ind_zmax))
 
 def _impose_b_bound(inout, nx, ny, nz, typ, phi, dirichlet_pot):
     '''impose the special mask for boundary points in b vector'''
@@ -94,12 +111,15 @@ class TestImposeRHSVecBoundaryPerf(unittest.TestCase):
         # assuming there are 1e6 grid points, each direction has 1e3
         self.nx, self.ny, self.nz = 100, 100, 100
         self.nr = self.nx * self.ny * self.nz
-        # say we have 6 boundary types, each has 300 points
-        typ = ['xmin'] * 30 + ['xmax'] * 30 + ['ymin'] * 30 \
-            + ['ymax'] * 30 + ['zmin'] * 30 + ['zmax'] * 30 + ['Dirichlet'] * 30
-        # and all others are of type "in"
-        typ += ['in'] * (self.nr - 210)
-        self.typ = np.array(typ, dtype=str)
+        typ = np.array(['****'] * self.nr, dtype=str).reshape((self.nx, self.ny, self.nz))
+        typ[typ == '****'] = 'in'
+        typ[   0,    :,  :] = 'xmin'
+        typ[  -1,    :,  :] = 'xmax'
+        typ[1:-1,    0,  :] = 'ymin'
+        typ[1:-1,   -1,  :] = 'ymax'
+        typ[1:-1, 1:-1,  0] = 'zmin'
+        typ[1:-1, 1:-1, -1] = 'zmax'
+        self.typ = typ.flatten()
         self.phi = np.random.rand(self.nr).astype(float)
         self.fixed_pot = np.random.rand(self.nr).astype(float)
         
@@ -161,15 +181,15 @@ class TestBFluxImplPerf(unittest.TestCase):
         self.nx, self.ny, self.nz = 100, 100, 100
         self.nr = self.nx * self.ny * self.nz
         # set the boundary types
-        typ = np.array(['in'] * self.nr, dtype=str).reshape((self.nx, self.ny, self.nz))
-        typ[ 0,  :,  :] = 'xmin'
-        typ[-1,  :,  :] = 'xmax'
-        typ[ :,  0,  :] = 'ymin'
-        typ[ :, -1,  :] = 'ymax'
-        typ[ :,  :,  0] = 'zmin'
-        typ[ :,  :, -1] = 'zmax'
-        typ = typ.flatten().tolist()
-        self.typ = np.array(typ, dtype=str)
+        typ = np.array(['****'] * self.nr, dtype=str).reshape((self.nx, self.ny, self.nz))
+        typ[typ == '****'] = 'in'
+        typ[   0,    :,  :] = 'xmin'
+        typ[  -1,    :,  :] = 'xmax'
+        typ[1:-1,    0,  :] = 'ymin'
+        typ[1:-1,   -1,  :] = 'ymax'
+        typ[1:-1, 1:-1,  0] = 'zmin'
+        typ[1:-1, 1:-1, -1] = 'zmax'
+        self.typ = typ.flatten()
         self.r = np.random.rand(self.nr, 3).astype(float)
         self.sigma = np.random.rand(self.nr, 3).astype(float)
         self.eps = np.random.rand(self.nr).astype(float)
@@ -227,15 +247,15 @@ class TestJFluxImplPerf(unittest.TestCase):
         self.nx, self.ny, self.nz = 100, 100, 100
         self.nr = self.nx * self.ny * self.nz
         # set the boundary types
-        typ = np.array(['in'] * self.nr, dtype=str).reshape((self.nx, self.ny, self.nz))
-        typ[ 0,  :,  :] = 'xmin'
-        typ[-1,  :,  :] = 'xmax'
-        typ[ :,  0,  :] = 'ymin'
-        typ[ :, -1,  :] = 'ymax'
-        typ[ :,  :,  0] = 'zmin'
-        typ[ :,  :, -1] = 'zmax'
-        typ = typ.flatten().tolist()
-        self.typ = np.array(typ, dtype=str)
+        typ = np.array(['****'] * self.nr, dtype=str).reshape((self.nx, self.ny, self.nz))
+        typ[typ == '****'] = 'in'
+        typ[   0,    :,  :] = 'xmin'
+        typ[  -1,    :,  :] = 'xmax'
+        typ[1:-1,    0,  :] = 'ymin'
+        typ[1:-1,   -1,  :] = 'ymax'
+        typ[1:-1, 1:-1,  0] = 'zmin'
+        typ[1:-1, 1:-1, -1] = 'zmax'
+        self.typ = typ.flatten()
         self.r = np.random.rand(self.nr, 3).astype(float)
         self.sigma = np.random.rand(self.nr, 3).astype(float)
         self.eps = np.random.rand(self.nr).astype(float)
