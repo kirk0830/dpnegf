@@ -677,70 +677,6 @@ class Interface3D(object):
         )
         return x
     
-    def build_newton_raphson_jacobian_rhsvec(self, 
-                                             jac: lil_array, 
-                                             b: np.ndarray):
-        '''
-        the speed-up version of NR_construct_Jac_B
-        
-        Parameters
-        ----------
-        jac : lil_array
-            The Jacobian matrix in LIL format to be constructed/updated. Ideally
-            its dense matrix form would be in shape of (Np, Np), where Np is the
-            number of grid points (a grid for another grid).
-        b : np.ndarray
-            The right-hand side vector to be constructed/updated. Ideally its
-            shape would be (Np,), where Np is the number of grid points.
-        
-        Notes
-        -----
-        this method constructs the Jacobian matrix and right-hand side vector in-place
-        '''
-        # sanity check on datatype
-        assert isinstance(jac, lil_array), "Jacobian must be a scipy sparse csr_matrix"
-        assert isinstance(b, np.ndarray), "b must be a numpy array"
-        
-        # however, is lil a suitable choice for the Jacobian in the following
-        # calculation?
-        
-        # number of grid points in x,y,z direction
-        Nx, Ny, _ = map(int, self.grid.shape[:3])
-        idim   = [ 0, 0,   1,  1,      2,     2]
-        ishift = [-1, 1, -Nx, Nx, -Nx*Ny, Nx*Ny]
-        
-        # index of those grid points that are within the bulk region
-        igbulk = [i for i, b in enumerate(self.boudnary_points) if b == "in"]
-        # numpy parallelization
-        # Jacobian
-        flux_j = 0.5 * eps0 * np.array([
-            self.grid.surface_grid[igbulk, d] * \
-            (np.roll(self.eps, s)[igbulk] + self.eps[igbulk]) / \
-            np.abs(np.roll(self.grid.grid_coord, s)[igbulk, d] \
-                - self.grid.grid_coord[igbulk, d])
-        for d, s in zip(idim, ishift)])
-        jac = np.diag(np.sum(flux_j, axis=0) - \
-                elementary_charge * np.abs(self.free_charge[igbulk]) / self.kBT \
-                * np.exp(-np.sign(self.free_charge[igbulk]) \
-                    * (self.phi[igbulk] - self.phi_old[igbulk]) / self.kBT
-                    )
-                )  # diagonal part of Jacobian
-        # off-diagonal part of Jacobian
-        for d, s in zip(idim, ishift):
-            jac[igbulk, np.roll(igbulk, s)] += flux_j[d]
-        # right-hand side vector
-        flux_b = flux_j * (np.roll(self.phi, ishift)[igbulk] - self.phi[igbulk])
-        b[igbulk] = np.sum(flux_b, axis=0)
-        b[igbulk] += elementary_charge * self.free_charge[igbulk] \
-            * np.exp(-np.sign(self.free_charge[igbulk]) \
-                * (self.phi[igbulk] - self.phi_old[igbulk]) / self.kBT)
-        b[igbulk] += self.fixed_charge[igbulk] * elementary_charge
-        
-        # index of those grid points that are at the boundary region
-        igsurf = list(set(range(self.grid.Np)) - set(igbulk))
-        jac[igsurf, igsurf] = 1.0
-
-    
     def NR_construct_Jac_B(self,J,B):
         """
         Constructs the Jacobian matrix (J) and right-hand side vector (B) for the Newton-Raphson solution 
@@ -763,6 +699,23 @@ class Interface3D(object):
         - Uses constants such as eps0 and elementary_charge, which must be defined in the scope.
         - The method modifies J and B in place.
         """
+        from dpnegf.negf.newton_raphson_speed_up import calculate as my_speed_up_kernel
+        nx, ny, nz = self.grid.shape[:3]
+        my_speed_up_kernel(jinout=J, 
+                           binout=B, 
+                           grid_dim=(nx, ny, nz),
+                           gridpoint_coords=self.grid.grid_coord,
+                           gridpoint_typ=self.boudnary_points,
+                           gridpoint_surfarea=self.grid.surface_grid,
+                           eps=self.eps,
+                           phi=self.phi,
+                           phi_old=self.phi_old,
+                           free_charge=self.free_charge,
+                           fixed_charge=self.fixed_charge,
+                           dirichlet_potential=self.lead_gate_potential,
+                           eps0=eps0,
+                           beta=1.0/self.kBT)
+        return
         # construct the Jacobian and B for the Poisson equation
         def average_eps(eps1, eps2, mode:str='harmonic'):
             if mode == 'arithmetic':
