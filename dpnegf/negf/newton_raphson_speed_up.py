@@ -195,6 +195,7 @@ class TestBFluxImplPerf(unittest.TestCase):
         self.eps = np.random.rand(self.nr).astype(float)
         self.eps0 = 8.854187817e-12
         self.avgeps = lambda eps1, eps2: (eps1 + eps2) / 2.0  # arithmetic mean
+
     def test_bflux_impl(self):
         ind = np.where(self.typ == "in")[0]
         jflux = np.random.rand(6, self.nr).astype(float)
