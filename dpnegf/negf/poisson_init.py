@@ -638,20 +638,27 @@ class Interface3D(object):
         - Uses constants such as eps0 and elementary_charge, which must be defined in the scope.
         - The method modifies J and B in place.
         """
-        from dpnegf.negf.newton_raphson_speed_up import calculate as my_speed_up_kernel
+        from dpnegf.negf.newton_raphson_speed_up import calculate as construct
         nx, ny, nz = self.grid.shape[:3]
-        my_speed_up_kernel(jinout=J, 
-                           binout=B, 
-                           grid_dim=(nx, ny, nz),
-                           gridpoint_coords=self.grid.grid_coord,
-                           gridpoint_typ=self.boudnary_points,
-                           gridpoint_surfarea=self.grid.surface_grid,
-                           eps=self.eps,
-                           phi=self.phi,
-                           phi_=self.phi_old,
-                           free_chr=self.free_charge,
-                           fixed_chr=self.fixed_charge,
-                           dirichlet_pot=self.lead_gate_potential,
-                           eps0=eps0,
-                           beta=1.0/self.kBT)
+        feps = lambda eps1, eps2: (eps1 + eps2) / 2.0
+        if self.average_mode == 'harmonic':
+            feps = lambda eps1, eps2: 2.0 * eps1 * eps2 / (eps1 + eps2)
+        else:
+            assert self.average_mode == 'arithmetic'
+        
+        construct(jinout=J, 
+                  binout=B, 
+                  grid_dim=(nx, ny, nz),
+                  gridpoint_coords=self.grid.grid_coord,
+                  gridpoint_typ=self.boudnary_points,
+                  gridpoint_surfarea=self.grid.surface_grid,
+                  eps=self.eps,
+                  phi=self.phi,
+                  phi_=self.phi_old,
+                  free_chr=self.free_charge,
+                  fixed_chr=self.fixed_charge,
+                  dirichlet_pot=self.lead_gate_potential,
+                  eps0=eps0,
+                  beta=1.0/self.kBT,
+                  feps=feps)
 
