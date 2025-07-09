@@ -625,12 +625,14 @@ class Interface3D(object):
         For boundary points, the method applies appropriate boundary conditions (Dirichlet or Neumann) by 
         modifying J and B accordingly, based on the type of boundary (xmin, xmax, ymin, ymax, zmin, zmax, or Dirichlet).
         After assembling the contributions, the sign of B is flipped for nonzero entries for the Newton-Raphson iteration.
+        
         Parameters
         ----------
         J : numpy.ndarray
             The Jacobian matrix to be constructed/updated (shape: [Np, Np], where Np is the number of grid points).
         B : numpy.ndarray
             The right-hand side vector to be constructed/updated (shape: [Np]).
+            
         Notes
         -----
         - Assumes that self.grid, self.eps, self.phi, self.phi_old, self.free_charge, self.fixed_charge, 
