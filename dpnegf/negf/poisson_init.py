@@ -1,3 +1,6 @@
+import time
+import logging
+
 import numpy as np 
 # import pyamg #TODO: later add it to optional dependencies,like sisl
 # from pyamg.gallery import poisson
@@ -6,11 +9,10 @@ from dpnegf.utils.constants import Boltzmann, eV2J
 from scipy.constants import epsilon_0 as eps0  #TODO:later add to untils.constants.py
 from scipy.sparse import csr_matrix
 from scipy.sparse.linalg import spsolve
-import logging
+
 #eps0 = 8.854187817e-12 # in the unit of F/m
 # As length in deeptb is in the unit of Angstrom, the unit of eps0 is F/Angstrom
 eps0 = eps0*1e-10 # in the unit of F/Angstrom
-
 log = logging.getLogger(__name__)
 
 class Grid(object):
@@ -543,7 +545,12 @@ class Interface3D(object):
         else:
             raise ValueError('Unknown data type: ',dtype)
 
+        log.info("Start solving Poisson equation (Newton-Raphson)")
+        log.info("-"*(8+1+15+1+15+1+6))
+        log.info(f"{'ITERSTEP':>8s} {'|| DPHI ||':>15s} {'MAX(DPHI)':>15s} {'TIME/s':>6s}")
+        log.info("-"*(8+1+15+1+15+1+6))
         while norm_delta_phi > 1e-3 and NR_cycle_step < 100:
+            t = time.time()
             # obtain the Jacobian and B for the Poisson equation
             Jacobian,B = self.to_scipy_Jac_B(dtype=dtype)
             norm_B = np.linalg.norm(B)
@@ -551,7 +558,7 @@ class Interface3D(object):
             if method == 'scipy':   #TODO: rename to 'Direct
                 if NR_cycle_step == 0:
                     log.info(msg="Solve Poisson equation by scipy")
-                delta_phi = spsolve(Jacobian,B)
+                delta_phi = spsolve(Jacobian, B)
             elif method == 'pyamg': #TODO: rename to 'AMG'
                 if NR_cycle_step == 0:
                     log.info(msg="Solve Poisson equation by pyamg")
@@ -564,7 +571,7 @@ class Interface3D(object):
             self.phi += delta_phi
 
             if norm_delta_phi > 1e-3:
-                _,B = self.to_scipy_Jac_B()
+                _, B = self.to_scipy_Jac_B()
                 norm_B_new = np.linalg.norm(B)
                 control_count = 1
                 # control the norm of B to avoid larger norm_B after one NR cycle
@@ -572,13 +579,13 @@ class Interface3D(object):
                     if control_count==1: 
                         log.warning(msg="norm_B increase after this  NR cycle, contorler starts!")
                     self.phi -= delta_phi/np.power(2,control_count)
-                    _,B = self.to_scipy_Jac_B()
+                    _, B = self.to_scipy_Jac_B()
                     norm_B_new = np.linalg.norm(B)
                     control_count += 1
                     log.info(msg="    control_count: {:.1f}   norm_B_new: {:.5f}".format(float(control_count),norm_B_new))    
-                               
+
             NR_cycle_step += 1
-            log.info(msg="  NR cycle step: {:d}   norm_delta_phi: {:.8f}   max_delta_phi: {:.8f}".format(int(NR_cycle_step),norm_delta_phi,max_delta_phi))
+            log.info(f"{NR_cycle_step:>8} {norm_delta_phi:>15.8e} {max_delta_phi:>15.8e} {time.time()-t:>6.2f}")
         
         max_diff = np.max(abs(self.phi-self.phi_old))
         return max_diff
