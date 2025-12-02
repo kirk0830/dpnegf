@@ -83,17 +83,18 @@ class NEGFHamiltonianInit(object):
             self.structase = structure
         else:
             raise ValueError('structure must be ase.Atoms or str')
-        
+
         # check the structure cell is larger than the range of device and leads
         # In DPNEGF, the whole structure should be completely included in the cell
         # for correct prediction of Hamiltonian and overlap matrix.
         # TODO: Add support for non-ortho cell
-        xrange,yrange,zrange = self.structase.positions[:,0].max()-self.structase.positions[:,0].min(),\
-            self.structase.positions[:,1].max()-self.structase.positions[:,1].min(),\
-            self.structase.positions[:,2].max()-self.structase.positions[:,2].min()
-        if xrange > self.structase.cell[0][0] or yrange > self.structase.cell[1][1] or zrange > self.structase.cell[2][2]:
-            log.error(msg="The structure cell is smaller than the range of device and leads.")
-            raise ValueError
+        tol = 1e-8  # If the difference is less than or equal to tol, it is considered to meet the standard (allowing machine error)
+        escape_distances = [self.structase.positions[:, dim].max() - self.structase.positions[:, dim].min() -
+                            self.structase.cell[dim][dim] for dim in [0, 1, 2]]
+        if max(escape_distances) > tol:
+            msg = f"The structure cell is smaller than the range of device and leads. Out bound distance:{max(escape_distances)}"
+            log.error(msg=msg)
+            raise ValueError(msg)
         
         self.unit = unit
         self.stru_options = stru_options
