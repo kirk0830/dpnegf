@@ -6,7 +6,7 @@ By using DeePTB-SK or DeePTB-E3—both available within the DeePTB package—Dee
 
 
 For more details, see our papers:
-  1. [DeePTB-NEGF: arXiv:2411.08800v2](https://arxiv.org/abs/2411.08800v2)
+  1. [DPNEGF: npj Comput Mater 11, 375 (2025)](https://www.nature.com/articles/s41524-025-01853-6)
   2. [DeePTB-SK: Nat Commun 15, 6772 (2024)](https://doi.org/10.1038/s41467-024-51006-4)
   3. [DeePTB-E3: ICLR 2025 Spotlight](https://openreview.net/forum?id=kpq3IIjUD3)
 
@@ -40,11 +40,11 @@ Be careful if not all tests pass!
 
 ## How to cite
 
-The following references are required to be cited when using DeePTB-NEGF. Specifically:
+The following references are required to be cited when using DPNEGF. Specifically:
 
-- **For DeePTB-NEGF:**
+- **For DPNEGF:**
   
-    J. Zou, Z. Zhouyin, D. Lin, L. Zhang, S. Hou and Q. Gu, Deep Learning Accelerated Quantum Transport Simulations in Nanoelectronics: From Break Junctions to Field-Effect Transistors. arXiv:2411.08800 (2024).
+    J. Zou, Z. Zhouyin, D. Lin, L. Zhang, S. Hou and Q. Gu, Deep Learning Accelerated Quantum Transport Simulations in Nanoelectronics: From Break Junctions to Field-Effect Transistors, npj Comput Mater 11, 375 (2025).
 
 
 - **For DeePTB-SK:**
