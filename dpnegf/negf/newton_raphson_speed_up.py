@@ -38,7 +38,7 @@ def _impose_b_bound(inout, nx, ny, nz, typ, phi, dirichlet_pot):
     i = np.where(typ == 'Dirichlet')[0]
     inout[i] = phi[i] - dirichlet_pot[i]
 
-def coloumb(chr: float|np.ndarray) -> float|np.ndarray:
+def coulomb(chr: float|np.ndarray) -> float|np.ndarray:
     '''convert the charge to unit of Coulomb'''
     assert isinstance(chr, (float, np.ndarray)), "chr must be a float or numpy array"
     from dpnegf.utils.constants import elementary_charge as e
@@ -86,7 +86,7 @@ def _jacobian(inout, flux, i, nx, ny, nz, typ, zfree, phi, phi_, beta):
     assert flux.shape == (6, len(i))
     inout[i, i]  = -np.sum(flux, axis=0)
     inout[i, i] -= beta * \
-        np.abs(coloumb(zfree[i])) * np.exp(-beta * np.sign(zfree[i]) * (phi[i] - phi_[i]))
+        np.abs(coulomb(zfree[i])) * np.exp(-beta * np.sign(zfree[i]) * (phi[i] - phi_[i]))
     # non-diagonal elements
     for jf, d in zip(flux, disp_):
         inout[i, i + d] = jf
@@ -98,9 +98,9 @@ def _rhsvec(inout, flux, i, nx, ny, nz, typ, zfree, zfixed, phi, phi_, dirichlet
     # calculate the b vector
     assert flux.shape == (6, len(i))
     inout[i]  = np.sum(flux, axis=0)
-    inout[i] += coloumb(zfree[i]) * \
+    inout[i] += coulomb(zfree[i]) * \
         np.exp(-beta * np.sign(zfree[i]) * (phi[i] - phi_[i]))
-    inout[i] += coloumb(zfixed[i])
+    inout[i] += coulomb(zfixed[i])
     # impose the boundary conditions
     _impose_b_bound(inout, nx, ny, nz, typ, phi, dirichlet_pot)
     
