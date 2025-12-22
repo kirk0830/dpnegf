@@ -8,33 +8,33 @@ log = logging.getLogger(__name__)
 
 def _impose_j_bound(inout, nx, ny, nz, typ, val, mask):
     '''impose the special mask for boundary points'''
-    boundary_types_ = ['xmin', 'xmax', 'ymin', 'ymax', 'zmin', 'zmax', 'Dirichlet']
+    # Neumann boundary types
+    neumann_types_ = ['xmin', 'xmax', 'ymin', 'ymax', 'zmin', 'zmax']
     displ_ = [+1, -1, +nx, -nx, +nx*ny, -nx*ny]
-    for t, d in zip(boundary_types_, displ_):
-        # perf bottle-neck: search
-        i = np.where(np.array(typ) == t)[0] # all indices of the boundary type
+    for t, d in zip(neumann_types_, displ_):
+        i = np.where(np.array(typ) == t)[0]
         if len(i) == 0:
             log.warning(f'no grid point with type {t} found')
-        # scipy sparse matrix also supports the parallized assignment
+        # scipy sparse matrix also supports the parallelized assignment
         inout[i, i] = val
         inout[i, i + d] = mask
 
-    # there is also a special type "Dirichlet" for the Dirichlet boundary condition
+    # Dirichlet boundary
     i = np.where(typ == 'Dirichlet')[0]
     inout[i, i] = val
 
 def _impose_b_bound(inout, nx, ny, nz, typ, phi, dirichlet_pot):
     '''impose the special mask for boundary points in b vector'''
-    boundary_types_ = ['xmin', 'xmax', 'ymin', 'ymax', 'zmin', 'zmax', 'Dirichlet']
+    # Neumann boundary types
+    neumann_types_ = ['xmin', 'xmax', 'ymin', 'ymax', 'zmin', 'zmax']
     displ_ = [+1, -1, +nx, -nx, +nx*ny, -nx*ny]
-    for t, d in zip(boundary_types_, displ_):
-        # perf bottle-neck: search
+    for t, d in zip(neumann_types_, displ_):
         i = np.where(typ == t)[0]
         if len(i) == 0:
             log.warning(f'no grid point with type {t} found')
         inout[i] = phi[i] - phi[i + d]
-        
-    # there is also a special type "Dirichlet" for the Dirichlet boundary condition
+
+    # Dirichlet boundary
     i = np.where(typ == 'Dirichlet')[0]
     inout[i] = phi[i] - dirichlet_pot[i]
 
