@@ -6,6 +6,7 @@ import numpy as np
 # from pyamg.gallery import poisson
 from dpnegf.utils.constants import elementary_charge
 from dpnegf.utils.constants import Boltzmann, eV2J
+from dpnegf.negf.newton_raphson_speed_up import nr_construct
 from scipy.constants import epsilon_0 as eps0  #TODO:later add to untils.constants.py
 from scipy.sparse import csr_matrix
 from scipy.sparse.linalg import spsolve
@@ -540,7 +541,8 @@ class Interface3D(object):
             raise ValueError(f"Unknown data type: {dtype}. Use 'float64' or 'float32'.")
 
         # initialize the solver
-        assert method in ['scipy', 'pyamg']
+        if method not in ['scipy', 'pyamg']:
+            raise ValueError(f"Unknown Poisson solver method: {method}. Use 'scipy' or 'pyamg'.")
         log.info(f'Solve Poisson equation by {method}')
         solve = lambda jac, b: spsolve(jac, b) if method == 'scipy' \
             else self.solver_pyamg(jac, b, tolerance=1e-5) # hard-coded
@@ -662,7 +664,7 @@ class Interface3D(object):
         - Uses constants such as eps0 and elementary_charge, which must be defined in the scope.
         - The method modifies J and B in place.
         """
-        from dpnegf.negf.newton_raphson_speed_up import calculate as construct
+        
         nx, ny, nz = self.grid.shape[:3]
         # https://manual.gromacs.org/documentation/current/reference-manual/topologies/parameter-files.html#nbpar
         feps = {'harmonic'  : lambda eps1, eps2: 2.0 * eps1 * eps2 / (eps1 + eps2),
@@ -670,21 +672,21 @@ class Interface3D(object):
                 'geometric' : lambda eps1, eps2: np.sqrt(eps1 * eps2), # gromacs comb-rule 2
                 }[self.average_mode]
 
-        construct(jinout=J, 
-                  binout=B, 
-                  grid_dim=(nx, ny, nz),
-                  gridpoint_coords=self.grid.grid_coord,
-                  gridpoint_typ=self.boudnary_points,
-                  gridpoint_surfarea=self.grid.surface_grid,
-                  eps=self.eps,
-                  phi=self.phi,
-                  phi_=self.phi_old,
-                  free_chr=self.free_charge,
-                  fixed_chr=self.fixed_charge,
-                  dirichlet_pot=self.lead_gate_potential,
-                  eps0=eps0,
-                  beta=1.0/self.kBT,
-                  feps=feps)
+        nr_construct(jinout=J, 
+                    binout=B, 
+                    grid_dim=(nx, ny, nz),
+                    gridpoint_coords=self.grid.grid_coord,
+                    gridpoint_typ=self.boudnary_points,
+                    gridpoint_surfarea=self.grid.surface_grid,
+                    eps=self.eps,
+                    phi=self.phi,
+                    phi_=self.phi_old,
+                    free_chr=self.free_charge,
+                    fixed_chr=self.fixed_charge,
+                    dirichlet_pot=self.lead_gate_potential,
+                    eps0=eps0,
+                    beta=1.0/self.kBT,
+                    feps=feps)
 
         # ===================================== OLD IMPLEMENTATION =========================================
         # construct the Jacobian and B for the Poisson equation
