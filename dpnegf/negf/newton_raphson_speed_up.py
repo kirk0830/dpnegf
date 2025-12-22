@@ -1,9 +1,12 @@
 import time
+import logging
 import unittest
 from typing import Optional, Tuple, List, Callable
 
 import numpy as np
 from scipy.sparse import lil_matrix
+
+log = logging.getLogger(__name__)
 
 def _impose_j_bound(inout, nx, ny, nz, typ, val, mask):
     '''impose the special mask for boundary points'''
@@ -12,7 +15,8 @@ def _impose_j_bound(inout, nx, ny, nz, typ, val, mask):
     for t, d in zip(my_boundary_types_, my_displ_):
         # perf bottle-neck: search
         i = np.where(np.array(typ) == t)[0] # all indices of the boundary type
-        assert len(i) > 0, f'no grid point with type {t} found'
+        if len(i) == 0:
+            log.warning(f'no grid point with type {t} found')
         # scipy sparse matrix also supports the parallized assignment
         inout[i, i] = val
         inout[i, i + d] = mask
@@ -99,7 +103,8 @@ def _impose_b_bound(inout, nx, ny, nz, typ, phi, dirichlet_pot):
     for t, d in zip(my_boundary_types_, my_displ_):
         # perf bottle-neck: search
         i = np.where(typ == t)[0]
-        assert len(i) > 0, f'no grid point with type {t} found'
+        if len(i) == 0:
+            log.warning(f'no grid point with type {t} found')
         inout[i] = phi[i] - phi[i + d]
         
     # there is also a special type "Dirichlet" for the Dirichlet boundary condition
