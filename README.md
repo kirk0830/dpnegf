@@ -44,7 +44,7 @@ The following references are required to be cited when using DPNEGF. Specificall
 
 - **For DPNEGF:**
   
-    J. Zou, Z. Zhouyin, D. Lin, L. Zhang, S. Hou and Q. Gu, Deep Learning Accelerated Quantum Transport Simulations in Nanoelectronics: From Break Junctions to Field-Effect Transistors, npj Comput Mater 11, 375 (2025).
+    J. Zou, Z. Zhouyin, D. Lin, Y. Huang, L. Zhang, S. Hou and Q. Gu, Deep Learning Accelerated Quantum Transport Simulations in Nanoelectronics: From Break Junctions to Field-Effect Transistors, npj Comput Mater 11, 375 (2025).
 
 
 - **For DeePTB-SK:**
