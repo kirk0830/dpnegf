@@ -588,12 +588,12 @@ class NEGF(object):
                             self.negf_hamiltonian.subblocks = self.negf_hamiltonian.get_hs_device(only_subblocks=True)
                     
                     self.density.density_integrate_Fiori(
-                        e_grid = self.uni_grid, 
+                        e_grid = self.uni_grid,
                         kpoint=k,
                         Vbias=Vbias,
                         block_tridiagonal=self.block_tridiagonal,
                         subblocks=self.negf_hamiltonian.subblocks,
-                        integrate_way = self.density_options["integrate_way"],  
+                        integrate_way = self.density_options["integrate_way"],
                         deviceprop=self.deviceprop,
                         device_atom_norbs=self.device_atom_norbs,
                         potential_at_atom = self.potential_at_atom,
@@ -601,7 +601,8 @@ class NEGF(object):
                         free_charge = self.free_charge,
                         eta_lead = self.eta_lead,
                         eta_device = self.eta_device,
-                        E_ref = self.deviceprop.E_ref
+                        E_ref = self.deviceprop.E_ref,
+                        self_energy_save_path = self.self_energy_save_path
                         )
                 else:
                     # TODO: add Ozaki support for NanoTCAD-style SCF
