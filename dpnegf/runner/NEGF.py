@@ -182,7 +182,7 @@ class NEGF(object):
                                                                 meshgrid=self.stru_options[lead_tag]["kmesh_lead_Ef"],
                                                                 AtomicData_options=AtomicData_options,
                                                                 smearing_method=self.stru_options.get("e_fermi_smearing", "FD"),
-                                                                temp=100.0,
+                                                                temp=self.ele_T,
                                                                 eig_solver=self.stru_options.get("eig_solver", "torch"),)
         else:
             e_fermi["lead_L"] = self.e_fermi
